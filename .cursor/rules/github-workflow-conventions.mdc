@@ -1,0 +1,15 @@
+---
+alwaysApply: false
+---
+# GitHub Workflow Conventions
+
+- Keep workflow roles distinct: test/lint/security checks, Docker image publishing, and Prefect deployment automation.
+- `data-pipeline-ci.yml` must stay aligned with local development assumptions such as dependency installation and `docker compose up -d`.
+- `data_image_build.yml` publishes the `Dockerfile.Prefect` image and updates downstream orchestration config; image naming and tagging must stay stable.
+- `prefect-flow-ci.yaml` is the deployment path for `prefect deploy --all`; workflow changes here affect all scheduled flows.
+- Keep workflow secrets, environment names, image tags, and registry references explicit and consistent with Dockerfiles and `prefect.yaml`.
+
+Avoid:
+- changing CI behavior without checking Docker and Prefect implications
+- drifting image names, tags, or environment wiring across workflows
+- embedding secrets or manual one-off deployment logic in workflow steps

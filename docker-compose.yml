@@ -1,0 +1,84 @@
+# CDC infrastructure: Postgres WAL -> Debezium -> Redpanda (Kafka API).
+# A trigger service watches Kafka offsets and starts a Prefect deployment only
+# when new events arrive, then the flow drains Kafka and bulk-MERGEs to Snowflake.
+#
+# Prerequisites:
+#   - Your Postgres has wal_level=logical (SHOW wal_level;)
+#   - Run docker/postgres/init.sql on your Postgres once
+#   - Copy .env.example -> .env and fill in POSTGRES_* and SNOWFLAKE_* values
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f debezium-server
+#   docker compose down
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    command:
+      - redpanda
+      - start
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:29092,EXTERNAL://localhost:9092
+      - --smp
+      - "1"
+      - --memory
+      - 1G
+      - --reserve-memory
+      - 0M
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --check=false
+    ports:
+      - "9092:9092"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  debezium-server:
+    image: quay.io/debezium/server:3.2
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST_CDC: ${POSTGRES_HOST_CDC:-host.docker.internal}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      CDC_SOURCE_TABLE_INCLUDE: ${CDC_SOURCE_TABLE_INCLUDE:-public.users}
+    volumes:
+      - ./docker/debezium:/debezium/config
+      - debezium_data:/debezium/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  cdc-trigger:
+    build:
+      context: .
+      dockerfile: docker/cdc_trigger/Dockerfile
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    environment:
+      CDC_KAFKA_BOOTSTRAP: ${CDC_KAFKA_BOOTSTRAP:-redpanda:29092}
+      CDC_KAFKA_TOPIC: ${CDC_KAFKA_TOPIC:-app.public.users}
+      CDC_TRIGGER_GROUP_ID: ${CDC_TRIGGER_GROUP_ID:-cdc-prefect-webhook-bridge}
+      CDC_TRIGGER_COOLDOWN_SECONDS: ${CDC_TRIGGER_COOLDOWN_SECONDS:-120}
+      CDC_TRIGGER_HTTP_TIMEOUT_SECONDS: ${CDC_TRIGGER_HTTP_TIMEOUT_SECONDS:-10}
+      PREFECT_CDC_WEBHOOK_URL: ${PREFECT_CDC_WEBHOOK_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  redpanda_data:
+  debezium_data:

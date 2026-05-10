@@ -1,0 +1,28 @@
+name: "learn_dbt_snowflake"
+version: "1.0.0"
+
+config-version: 2
+
+profile: "learn_dbt"
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  learn_dbt_snowflake:
+    core:
+      +schema: "core"
+      +materialized: table
+      +tags: ["core"]
+    marts:
+      +schema: "marts"
+      +materialized: table
+      +tags: ["marts", "adult_flow"]
