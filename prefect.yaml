@@ -1,0 +1,23 @@
+# Local deploy: register deployments from this repo root (`prefect deploy --all`).
+# Prefect will bake an absolute `set_working_directory` pull step for this path.
+# Run a process worker that polls the same work pool, e.g.
+#   prefect worker start -p default-agent-pool
+# If you move the repo, redeploy so the baked path stays correct.
+name: learn_dbt_snowflake
+prefect-version: 3.6.21
+
+deployments:
+  - name: prefect_postgres_to_snowflake_run
+    entrypoint: flows/postgres_to_snowflake/main.py:run_postgres_to_snowflake_flow
+    parameters: {}
+    work_pool:
+      name: docker-local-pool
+
+    schedules: []
+
+  - name: prefect_cdc_to_snowflake
+    entrypoint: flows/cdc_to_snowflake/main.py:cdc_to_snowflake_flow
+    parameters: {}
+    work_pool:
+      name: cdc-test
+    schedules: []

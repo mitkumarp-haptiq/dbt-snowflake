@@ -1,0 +1,81 @@
+version: 2
+
+sources:
+  - name: snowflake
+    description: Existing Snowflake tables that dbt reads directly.
+    database: "{{ target.database }}"
+    schema: "{{ target.schema }}"
+    tables:
+      - name: postgres_snapshot
+        identifier: POSTGRES_SNAPSHOT
+        description: Snapshot rows loaded into Snowflake before dbt transforms them.
+        columns:
+          - name: name
+            description: Raw person name from the Snowflake source table.
+          - name: phone_number
+            description: Raw phone number as loaded into Snowflake.
+          - name: date_of_birth
+            description: Raw date of birth string in day/month/year format.
+
+  - name: snowflake_cdc
+    description: |
+      Live customer table maintained by the CDC pipeline:
+      Postgres -> Debezium -> Redpanda -> Prefect flow (every 2 min, bulk MERGE).
+      Within ~2 minutes of a Postgres change, this table reflects the new state.
+    database: "{{ target.database }}"
+    schema: "{{ target.schema }}"
+    tables:
+      - name: cdc_customers
+        identifier: CDC_CUSTOMERS
+        description: Live mirror of `public.customers` from Postgres via Debezium CDC.
+        columns:
+          - name: id
+            description: Customer primary key (mirrored from Postgres).
+          - name: first_name
+            description: Customer first name.
+          - name: last_name
+            description: Customer last name.
+          - name: email
+            description: Customer email.
+
+models:
+  - name: users_data
+    description: Deduplicated user records built directly from the `POSTGRES_SNAPSHOT` Snowflake source table.
+    config:
+      materialized: table
+      tags: ["core"]
+    columns:
+      - name: name
+        description: User name after whitespace cleanup from the Snowflake source.
+      - name: phone_number
+        description: Phone number normalized to digits only.
+      - name: date_of_birth
+        description: Date of birth parsed from the Snowflake source's day/month/year text field.
+      - name: age
+        description: Current age in years computed from `date_of_birth`.
+
+  - name: adult_detection
+    description: |
+      Policy layer that flags whether a person is an adult from curated `users_data`, using
+      a fixed rule (age strictly greater than 18). For compliance, pair with legal review
+      of the exact threshold in your jurisdiction.
+    config:
+      materialized: table
+      tags: ["core", "adult_detection"]
+    columns:
+      - name: name
+        description: User name (inherited from `users_data`); treat as PII.
+      - name: phone_number
+        description: Normalized phone (inherited from `users_data`); treat as PII.
+      - name: date_of_birth
+        description: Parsed date of birth (inherited from `users_data`); treat as PII.
+      - name: age
+        description: Age in years (inherited from `users_data`). Null when `date_of_birth` is null.
+      - name: is_adult
+        description: |
+          True when `age` is not null and strictly greater than 18. Null when `age` is null
+          (unknown eligibility).
+      - name: detection_method
+        description: |
+          Static label describing the rule used (age threshold). Useful for audit trails when
+          multiple detection strategies exist later.

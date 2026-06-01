@@ -1,0 +1,14 @@
+# Prefect orchestration + dbt Snowflake adapter (pin major/minor in production).
+prefect==3.6.21
+dbt-snowflake>=1.7,<1.9
+python-dotenv>=1.0,<2
+pandas>=2.0,<3
+pyarrow>=14,<21
+psycopg2-binary>=2.9,<3
+snowflake-sqlalchemy>=1.5,<2
+sqlalchemy>=2.0,<3
+structlog>=24.1,<26
+# Kafka client for the CDC drain flow (works with Redpanda's Kafka API).
+confluent-kafka>=2.4,<3
+# Direct Azure Monitor / Application Insights logging for Prefect flows.
+azure-monitor-opentelemetry>=1.8,<1.9

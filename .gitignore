@@ -1,0 +1,25 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.env
+.env.*
+!.env.example
+
+# dbt
+learn_dbt/target/
+learn_dbt/dbt_packages/
+learn_dbt/logs/
+
+# Debezium offset/history data (Docker volume)
+docker/debezium/data/
+
+.DS_Store
+
+# dbt Cloud / local user id (per machine)
+learn_dbt/.user.yml

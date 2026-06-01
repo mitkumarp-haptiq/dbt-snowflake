@@ -1,0 +1,24 @@
+# Credentials must come from environment variables (no secrets in git).
+# Sentinel defaults keep Jinja valid and avoid empty Snowflake identifiers (account, etc.);
+# set real SNOWFLAKE_* values (e.g. `set -a; source ../.env`) before connecting.
+# Example: copy ../.env.example to ../.env and export DBT_PROFILES_DIR=learn_dbt
+#
+# Default target `dev` uses key-pair auth (required when MFA blocks password/programmatic login).
+# Use `dev_password` only if your user has no MFA on password auth.
+learn_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT', 'CHANGEME_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER', 'CHANGEME_USER') }}"
+      # Fallback only keeps editor tooling from pointing at a fake placeholder path.
+      # Real dbt runs should still provide SNOWFLAKE_PRIVATE_KEY_PATH from the environment.
+      private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'CHANGEME_ROLE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'CHANGEME_DATABASE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'CHANGEME_WAREHOUSE') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'CHANGEME_SCHEMA') }}"
+      threads: 4
+      client_session_keep_alive: false

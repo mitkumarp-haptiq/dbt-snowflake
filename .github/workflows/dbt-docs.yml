@@ -1,0 +1,97 @@
+# Build dbt documentation and publish to GitHub Pages (live URL).
+#
+# This workflow does NOT connect to Snowflake. It uses `dbt parse` +
+# `dbt docs generate --no-compile --empty-catalog`, which produces a full
+# documentation site (lineage, model SQL, descriptions, tests, sources, macros)
+# straight from the project files. The only thing missing vs. a warehouse-backed
+# build is per-column data types / row counts from `INFORMATION_SCHEMA`.
+#
+# One-time repo setup:
+#   1. Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+#
+# Live URL after a successful run:
+#   https://<owner>.github.io/<repo>/
+name: dbt docs (GitHub Pages)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "learn_dbt/**"
+      - "requirements.txt"
+      - ".github/workflows/dbt-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-dbt-docs
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    # Dummy values let dbt's adapter load without hitting Snowflake.
+    # parse + --no-compile + --empty-catalog never opens a connection.
+    env:
+      DBT_PROFILES_DIR: learn_dbt
+      SNOWFLAKE_ACCOUNT: ci.placeholder
+      SNOWFLAKE_USER: ci_placeholder
+      SNOWFLAKE_ROLE: PUBLIC
+      SNOWFLAKE_DATABASE: CI_PLACEHOLDER_DB
+      SNOWFLAKE_WAREHOUSE: CI_PLACEHOLDER_WH
+      SNOWFLAKE_SCHEMA: CI_PLACEHOLDER_SCHEMA
+      SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/ci_placeholder_key.p8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dbt-snowflake
+        # We only need dbt + the adapter. Skipping the heavy data deps
+        # (pandas/pyarrow/prefect/kafka) keeps the docs job ~30s.
+        run: |
+          python -m pip install --upgrade pip
+          pip install "dbt-snowflake>=1.7,<1.9"
+
+      - name: Create placeholder key file
+        # The Snowflake adapter validates that SNOWFLAKE_PRIVATE_KEY_PATH exists
+        # at import time, even when we never connect.
+        run: |
+          : > "${SNOWFLAKE_PRIVATE_KEY_PATH}"
+
+      - name: Parse dbt project
+        run: dbt parse --project-dir learn_dbt --profiles-dir learn_dbt
+
+      - name: Generate docs (no warehouse)
+        run: |
+          dbt docs generate \
+            --project-dir learn_dbt \
+            --profiles-dir learn_dbt \
+            --no-compile \
+            --empty-catalog
+
+      - name: Prepare static site for GitHub Pages
+        run: touch learn_dbt/target/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: learn_dbt/target
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

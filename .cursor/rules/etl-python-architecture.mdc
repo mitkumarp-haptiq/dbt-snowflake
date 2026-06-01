@@ -1,0 +1,22 @@
+---
+alwaysApply: false
+---
+# ETL Python Architecture
+
+- Build new ETL domains as `flows/<domain>/{extract.py,transform.py,load.py,main.py}`.
+- Keep OOP boundaries clear: connectors fetch data, flows orchestrate, transforms shape data, loads persist data.
+- New source connectors must extend `BaseConnector`, keep `get_data(...)` compatible with `ConnectorManager`, and be registered in `connectors/__init__.py`.
+- New ORM tables must live in `models/` and be added to `models/__init__.py`.
+- Use `ConnectorManager` and `ConfigurationManager`; never hardcode credentials, vault keys, endpoints, or table mappings.
+- `main.py` should follow the repo pattern: inner flow, manager flow, and entry `run_<domain>_flow`.
+- Prefer Prefect variables for runtime params when deployment params are absent.
+- Use `setup_logger(__name__, task_level_logging)` and log before raising.
+- Raise specific validation/domain exceptions instead of only generic `ValueError`.
+- Use SQLAlchemy session discipline: commit on success, rollback on error, always close in `finally`.
+- Respect tenant-aware schema behavior such as `schema_translate_map` and migration `search_path`.
+
+Avoid:
+- connector interface drift between `BaseConnector`, concrete classes, and `ConnectorManager`
+- direct connector instantiation inside flow code
+- business logic hidden in load plumbing
+- swallowing exceptions or returning partial results without explicit error metadata
