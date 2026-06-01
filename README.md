@@ -55,6 +55,21 @@ Build the staged and core models that read from `POSTGRES_SNAPSHOT` in Snowflake
 dbt build --project-dir learn_dbt --profiles-dir learn_dbt --select users_data+
 ```
 
+### Hosted dbt docs (GitHub Pages)
+
+Workflow [`.github/workflows/dbt-docs.yml`](.github/workflows/dbt-docs.yml) runs on pushes to `main` that touch `learn_dbt/`, and on manual **workflow_dispatch**. It runs `dbt parse` + `dbt docs generate --no-compile --empty-catalog` and publishes `learn_dbt/target/` to **GitHub Pages**.
+
+**No Snowflake credentials required.** The docs site is built directly from the project files (models, tests, sources, macros, lineage, descriptions). The only thing missing vs. a warehouse-backed build is per-column types / row counts from `INFORMATION_SCHEMA`.
+
+**One-time setup**
+
+1. **Settings → Pages → Build and deployment** — set **Source** to **GitHub Actions**.
+2. Push to `main` or run **Actions → dbt docs (GitHub Pages) → Run workflow**.
+
+After a successful run, the live docs URL is shown on the workflow run and the **github-pages** environment (typically `https://<owner>.github.io/<repo>/`). For a private repo, restrict access under **Settings → Pages**.
+
+> If you later get RSA key-pair auth working (or add a password target), you can swap the workflow's `dbt parse` / `--empty-catalog` step for a real `dbt docs generate` to include warehouse catalog stats.
+
 ## Prefect
 
 Run the Postgres -> Snowflake flow locally:

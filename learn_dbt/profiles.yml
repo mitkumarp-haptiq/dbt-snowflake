@@ -15,6 +15,7 @@ learn_dbt:
       # Fallback only keeps editor tooling from pointing at a fake placeholder path.
       # Real dbt runs should still provide SNOWFLAKE_PRIVATE_KEY_PATH from the environment.
       private_key_path: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PATH') }}"
+      private_key_passphrase: "{{ env_var('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE', '') }}"
       role: "{{ env_var('SNOWFLAKE_ROLE', 'CHANGEME_ROLE') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'CHANGEME_DATABASE') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'CHANGEME_WAREHOUSE') }}"
